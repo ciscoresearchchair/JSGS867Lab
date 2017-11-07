@@ -1,0 +1,105 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+> url  <- "http://api.epdb.eu"
+> path <- "eurlex/directory_code"
+> raw.result <- GET(url = url, path = path)
+> names(raw.result)
+> raw.result[["status_code"]]
+> raw.result[["content"]]
+> this.raw.content <- rawToChar(raw.result$content)
+> nchar(this.raw.content)
+> substr(this.raw.content, 1, 100)
+> this.content <- fromJSON(this.raw.content)
+> View(this.content)
+> this.content.df <- do.call(what = "rbind",
++                            args = lapply(this.content, as.data.frame))
+> View(this.content.df)
+> headClass <- substr(x     = this.content.df[, "directory_code"],
++                     start = 1,
++                     stop  = 2)
+> isEnergy <- headClass == "12"
+> table(isEnergy) # 19 of the topic classifiers start with 12
+isEnergy
+> 
+> relevant.df <- this.content.df[isEnergy, ]
+> View(relevant.df)
+> relevant.dc <- relevant.df[, "directory_code"]
+> makeQuery <- function(classifier) {
++     this.query <- list(classifier)
++     names(this.query) <- "dc"
++     return(this.query)
++ }
+> View(makeQuery)
+> queries <- lapply(as.list(relevant.dc), makeQuery)
+> View(queries)
+> this.raw.result <- GET(url = url, path = path, query = queries[[1]])
+> View(this.raw.result)
+> this.result <- fromJSON(rawToChar(this.raw.result$content))
+> View(this.result)
+> all.results <- vector(mode   = "list",
++                       length = length(relevant.dc))
+> for (i in 1:length(all.results)) {
++     this.query       <- queries[[i]]
++     this.raw.answer  <- GET(url = url, path = path, query = this.query)
++     this.answer      <- fromJSON(rawToChar(this.raw.answer$content))
++     all.results[[i]] <- this.answer
++     message(".", appendLF = FALSE)
++     Sys.sleep(time = 1)
++ }
+...................
+> View(all.results)
+> parseAnswer <- function(answer) {
++     this.form   <- answer$form
++     this.date   <- answer$date
++     this.effect <- answer$of_effect
++     result <- data.frame(form   = this.form,
++                          date   = this.date,
++                          effect = this.effect)
++     return(result)
++ }
+> parseAnswer(all.results[[1]][[2]])
+       form       date     effect
+1 Directive 2001-09-27 2001-10-27
+> View(this.query)
+> parsedAnswers <- lapply(all.results,
++                         function(x) do.call("rbind", lapply(x, parseAnswer)))
+> View(parsedAnswers)
+> parsedAnswers[[1]][["form"]]
+ [1] "Directive"                  "Directive"                 
+ [3] "Directive"                  "Directive"                 
+ [5] "Decision"                   "decision without addressee"
+ [7] "decision with addressee"    "Directive"                 
+ [9] "Regulation"                 "Regulation"                
+[11] "Regulation"                
+> parsedAnswers[[3]]
+> finalResult <- do.call("rbind", parsedAnswers)
+> class(finalResult) #data.frame
+> dim(finalResult) # 1078 rows, 3 columns
+> View(finalResult)
+> date.character <- "1981-05-02"
+> date.POSIXct <- ymd(date.character)
+> class(date.character) #character
+> class(date.POSIXct) #POSIXct
+> finalResult$date <- ymd(finalResult$date)
+> finalResult$effect <- ymd(finalResult$effect)
+> finalResult$effectDay <- wday(finalResult$effect, label = TRUE)
+> table(finalResult$effectDay)
+```
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
